@@ -19,6 +19,7 @@ package com.example.android.camera2basic
 import android.os.Bundle
 import android.support.v7.app.AppCompatActivity
 import android.view.View
+import com.example.android.camera2basic.rtmp.RtmpClient
 import com.yuliyang.testlibyuv.R
 
 

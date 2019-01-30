@@ -41,11 +41,13 @@ import android.util.Log
 import android.util.Size
 import android.util.SparseIntArray
 import android.view.*
+import com.example.android.camera2basic.rtmp.RESFlvData
+import com.example.android.camera2basic.rtmp.RtmpClient
 import com.yuliyang.testlibyuv.R
 import java.io.File
 import java.io.FileOutputStream
+import java.sql.Timestamp
 import java.util.*
-import java.util.concurrent.Executors
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 
@@ -142,7 +144,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
      * This is the output file for our picture.
      */
     private lateinit var file: File
-
+    private lateinit var flvTmpfile: File
 
     private lateinit var testVideoFile: File
     private lateinit var op: FileOutputStream
@@ -228,6 +230,10 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
      */
     private var sensorOrientation = 0
 
+    var rtmpId: Long = -1
+    var flvId: Long = -1
+
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -248,6 +254,14 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
     override fun onActivityCreated(savedInstanceState: Bundle?) {
         super.onActivityCreated(savedInstanceState)
         file = File(activity!!.getExternalFilesDir(null), PIC_FILE_NAME)
+        flvTmpfile = File(activity!!.getExternalFilesDir(null), "flvTemp.flv")
+        if (!flvTmpfile.exists()) {
+            flvTmpfile.createNewFile()
+        }
+        Thread {
+            rtmpId = RtmpClient.open("rtmp://192.168.2.200/videotest", true)
+            flvId = RtmpClient.flvInit(flvTmpfile.absolutePath)
+        }.start()
     }
 
     override fun onResume() {
@@ -389,17 +403,14 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
             format.setInteger(
                 MediaFormat.KEY_COLOR_FORMAT,
                 MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible
-            );
+            )
             format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
-
             codec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
             codec.start()
         } catch (e: Exception) {
             e.printStackTrace();
         }
     }
-
-    private val threadPool = Executors.newCachedThreadPool()
 
     fun encoderYUV420(input: ByteArray) {
         try {
@@ -420,6 +431,17 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
                     val outData = ByteArray(outputBuffer.remaining())
                     outputBuffer.get(outData, 0, outData.size)
                     op.write(outData)
+                    //发送数据
+                    RtmpClient.write(
+                        rtmpId,
+                        flvId,
+                        flvTmpfile.absolutePath,
+                        bufferInfo.flags == 1,
+                        outData,
+                        outData.size,
+                        bufferInfo.presentationTimeUs,
+                        0x12
+                    )
                     codec.releaseOutputBuffer(outputBufferIndex, false)
                     outputBufferIndex = codec.dequeueOutputBuffer(bufferInfo, 5000)
                 }

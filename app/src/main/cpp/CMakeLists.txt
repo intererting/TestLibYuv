@@ -17,7 +17,8 @@ add_library( # Sets the name of the library.
         SHARED
 
         # Provides a relative path to your source file(s).
-        native-lib.cpp
+        RtmpUtil.cpp
+        FlvUtil.cpp
         YuvJni.cpp)
 
 # Searches for a specified prebuilt library and stores the path as a
@@ -48,9 +49,29 @@ set_target_properties(yuvLib
         PROPERTIES IMPORTED_LOCATION
         ${PROJECT_SOURCE_DIR}/jniLibs/armeabi-v7a/libyuv.so)
 
+add_library(
+        rtmpLib
+        SHARED
+        IMPORTED
+)
+set_target_properties(rtmpLib
+        PROPERTIES IMPORTED_LOCATION
+        ${PROJECT_SOURCE_DIR}/jniLibs/armeabi-v7a/libresrtmp.so)
+
+add_library(
+        libStream
+        SHARED
+        IMPORTED
+)
+set_target_properties(libStream
+        PROPERTIES IMPORTED_LOCATION
+        ${PROJECT_SOURCE_DIR}/jniLibs/armeabi-v7a/librestreaming.so)
+
 target_link_libraries( # Specifies the target library.
         native-lib
         yuvLib
+        rtmpLib
+        libStream
 
         # Links the target library to the log library
         # included in the NDK.
