@@ -19,7 +19,7 @@ public class Packager {
             byte[] result = new byte[length];
             SPSByteBuff.get(result, 8, spslength);
             PPSByteBuff.get(result, 8 + spslength + 3, ppslength);
-            /**
+            /*
              * UB[8]configurationVersion
              * UB[8]AVCProfileIndication
              * UB[8]profile_compatibility
@@ -31,13 +31,13 @@ public class Packager {
             result[2] = result[10];
             result[3] = result[11];
             result[4] = (byte) 0xFF;
-            /**
+            /*
              * UB[8]numOfSequenceParameterSets
              * UB[16]sequenceParameterSetLength
              */
             result[5] = (byte) 0xE1;
             ByteArrayTools.intToByteArrayTwoByte(result, 6, spslength);
-            /**
+            /*
              * UB[8]numOfPictureParameterSets
              * UB[16]pictureParameterSetLength
              */
@@ -72,7 +72,7 @@ public class Packager {
         }
 
         public static void fillFlvAudioTag(byte[] dst, int pos, boolean isAACSequenceHeader) {
-            /**
+            /*
              * UB[4] 10=AAC
              * UB[2] 3=44kHz
              * UB[1] 1=16-bit

@@ -45,6 +45,7 @@ import android.util.SparseIntArray
 import android.view.*
 import com.example.android.camera2basic.rtmp.FLvMetaData
 import com.example.android.camera2basic.rtmp.Packager
+import com.example.android.camera2basic.rtmp.RTMP_PACKET_TYPE_VIDEO
 import com.example.android.camera2basic.rtmp.RtmpClient
 import com.yuliyang.testlibyuv.R
 import java.io.File
@@ -261,12 +262,19 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
         if (!flvTmpfile.exists()) {
             flvTmpfile.createNewFile()
         }
-        rtmpId = RtmpClient.open("rtmp://192.168.2.200/videotest", true)
-        flvId = RtmpClient.flvInit(flvTmpfile.absolutePath)
-        //发送MateData
-        val metadata = FLvMetaData()
-
-        RtmpClient.writeMetadata(rtmpId, metadata.metaData, metadata.metaData.size, System.currentTimeMillis(), 0x12)
+        Thread {
+            rtmpId = RtmpClient.open("rtmp://192.168.2.200/videotest", true)
+            flvId = RtmpClient.flvInit(flvTmpfile.absolutePath)
+            //发送MateData
+            val metadata = FLvMetaData()
+            RtmpClient.writeMetadata(
+                rtmpId,
+                metadata.metaData,
+                metadata.metaData.size,
+                System.currentTimeMillis(),
+                0x12
+            )
+        }.start()
     }
 
     override fun onResume() {
@@ -344,13 +352,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
                 }
                 //选取中间的尺寸
                 streamSize = aspectRatioSize[aspectRatioSize.size / 2]
-                println("streamSize  $streamSize")
 
-                // For still image captures, we use the largest available size.
-                val largest = Collections.min(
-                    Arrays.asList(*map.getOutputSizes(ImageFormat.JPEG)),
-                    CompareSizesByArea()
-                )
                 imageReader = ImageReader.newInstance(
                     streamSize.width, streamSize.height,
                     ImageFormat.YUV_420_888, /*maxImages*/ 1
@@ -401,7 +403,6 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
     private fun initMediaCodec() {
         try {
             codec = MediaCodec.createEncoderByType(MIME)
-
             val format = MediaFormat.createVideoFormat(MIME, streamSize.height, streamSize.width)
             format.setInteger(MediaFormat.KEY_BIT_RATE, 3500 * 1000);
             format.setInteger(MediaFormat.KEY_FRAME_RATE, 30);
@@ -433,29 +434,29 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
             var outputBufferIndex = codec.dequeueOutputBuffer(bufferInfo, 5000)
             while (true) {
                 if (outputBufferIndex < 0 && outputBufferIndex != MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                    println(outputBufferIndex)
                     break
                 }
                 when (outputBufferIndex) {
                     MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
-                        val _AVCDecoderConfigurationRecord =
+                        println("INFO_OUTPUT_FORMAT_CHANGED")
+                        val mAVCDecoderConfigurationRecord =
                             Packager.H264Packager.generateAVCDecoderConfigurationRecord(codec.outputFormat)
                         val packetLen =
-                            Packager.FLVPackager.FLV_VIDEO_TAG_LENGTH + _AVCDecoderConfigurationRecord.size
+                            Packager.FLVPackager.FLV_VIDEO_TAG_LENGTH + mAVCDecoderConfigurationRecord.size
                         val finalBuff = ByteArray(packetLen)
                         Packager.FLVPackager.fillFlvVideoTag(
                             finalBuff,
                             0,
                             true,
                             true,
-                            _AVCDecoderConfigurationRecord.size
+                            mAVCDecoderConfigurationRecord.size
                         )
                         System.arraycopy(
-                            _AVCDecoderConfigurationRecord,
+                            mAVCDecoderConfigurationRecord,
                             0,
                             finalBuff,
                             Packager.FLVPackager.FLV_VIDEO_TAG_LENGTH,
-                            _AVCDecoderConfigurationRecord.size
+                            mAVCDecoderConfigurationRecord.size
                         )
                         RtmpClient.write264(
                             rtmpId,
@@ -497,8 +498,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
                                 rtmpId,
                                 finalBuff,
                                 finalBuff.size,
-                                System.currentTimeMillis(),
-                                0x09
+                                System.currentTimeMillis(), RTMP_PACKET_TYPE_VIDEO
                             )
                             codec.releaseOutputBuffer(outputBufferIndex, false)
                         }
