@@ -13,7 +13,11 @@ public class RtmpClient {
 
     //    public static native int read(long rtmpPointer, byte[] data, int offset, int size);
 //
-    public static native int write(long rtmpPointer, long flvPointer, String path, boolean keyFrame, byte[] data, int size, long time, int type);
+    public static native int write(long rtmpPointer, long flvPointer, boolean keyFrame, byte[] data, int size, long time, int type);
+
+    public static native int write264(long rtmpPointer, byte[] data, int size, long time, int type);
+
+    public static native int writeMetadata(long rtmpPointer, byte[] data, int size, long time, int type);
 //
 //    public static native int close(long rtmpPointer);
 //

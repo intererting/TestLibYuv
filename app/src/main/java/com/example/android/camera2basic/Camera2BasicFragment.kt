@@ -17,6 +17,7 @@
 package com.example.android.camera2basic
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.Context
 import android.content.pm.PackageManager
@@ -28,6 +29,7 @@ import android.graphics.SurfaceTexture
 import android.hardware.camera2.*
 import android.media.ImageReader
 import android.media.MediaCodec
+import android.media.MediaCodec.INFO_TRY_AGAIN_LATER
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.os.Bundle
@@ -41,15 +43,16 @@ import android.util.Log
 import android.util.Size
 import android.util.SparseIntArray
 import android.view.*
-import com.example.android.camera2basic.rtmp.RESFlvData
+import com.example.android.camera2basic.rtmp.FLvMetaData
+import com.example.android.camera2basic.rtmp.Packager
 import com.example.android.camera2basic.rtmp.RtmpClient
 import com.yuliyang.testlibyuv.R
 import java.io.File
 import java.io.FileOutputStream
-import java.sql.Timestamp
 import java.util.*
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
+import kotlin.experimental.and
 
 class Camera2BasicFragment : Fragment(), View.OnClickListener,
     ActivityCompat.OnRequestPermissionsResultCallback {
@@ -258,10 +261,12 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
         if (!flvTmpfile.exists()) {
             flvTmpfile.createNewFile()
         }
-        Thread {
-            rtmpId = RtmpClient.open("rtmp://192.168.2.200/videotest", true)
-            flvId = RtmpClient.flvInit(flvTmpfile.absolutePath)
-        }.start()
+        rtmpId = RtmpClient.open("rtmp://192.168.2.200/videotest", true)
+        flvId = RtmpClient.flvInit(flvTmpfile.absolutePath)
+        //发送MateData
+        val metadata = FLvMetaData()
+
+        RtmpClient.writeMetadata(rtmpId, metadata.metaData, metadata.metaData.size, System.currentTimeMillis(), 0x12)
     }
 
     override fun onResume() {
@@ -412,6 +417,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
         }
     }
 
+    @SuppressLint("SwitchIntDef")
     fun encoderYUV420(input: ByteArray) {
         try {
             val inputBufferIndex = codec.dequeueInputBuffer(5000);
@@ -424,27 +430,81 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
                 }
             }
             val bufferInfo = MediaCodec.BufferInfo()
-            var outputBufferIndex = codec.dequeueOutputBuffer(bufferInfo, 5000);
-            while (outputBufferIndex >= 0) {
-                val outputBuffer = codec.getOutputBuffer(outputBufferIndex)
-                outputBuffer?.apply {
-                    val outData = ByteArray(outputBuffer.remaining())
-                    outputBuffer.get(outData, 0, outData.size)
-                    op.write(outData)
-                    //发送数据
-                    RtmpClient.write(
-                        rtmpId,
-                        flvId,
-                        flvTmpfile.absolutePath,
-                        bufferInfo.flags == 1,
-                        outData,
-                        outData.size,
-                        bufferInfo.presentationTimeUs,
-                        0x12
-                    )
-                    codec.releaseOutputBuffer(outputBufferIndex, false)
-                    outputBufferIndex = codec.dequeueOutputBuffer(bufferInfo, 5000)
+            var outputBufferIndex = codec.dequeueOutputBuffer(bufferInfo, 5000)
+            while (true) {
+                if (outputBufferIndex < 0 && outputBufferIndex != MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                    println(outputBufferIndex)
+                    break
                 }
+                when (outputBufferIndex) {
+                    MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                        val _AVCDecoderConfigurationRecord =
+                            Packager.H264Packager.generateAVCDecoderConfigurationRecord(codec.outputFormat)
+                        val packetLen =
+                            Packager.FLVPackager.FLV_VIDEO_TAG_LENGTH + _AVCDecoderConfigurationRecord.size
+                        val finalBuff = ByteArray(packetLen)
+                        Packager.FLVPackager.fillFlvVideoTag(
+                            finalBuff,
+                            0,
+                            true,
+                            true,
+                            _AVCDecoderConfigurationRecord.size
+                        )
+                        System.arraycopy(
+                            _AVCDecoderConfigurationRecord,
+                            0,
+                            finalBuff,
+                            Packager.FLVPackager.FLV_VIDEO_TAG_LENGTH,
+                            _AVCDecoderConfigurationRecord.size
+                        )
+                        RtmpClient.write264(
+                            rtmpId,
+                            finalBuff,
+                            finalBuff.size,
+                            System.currentTimeMillis(),
+                            0x09
+                        )
+                    }
+                    else -> {
+                        val outputBuffer = codec.getOutputBuffer(outputBufferIndex)
+                        outputBuffer?.apply {
+                            outputBuffer.position(bufferInfo.offset + 4)
+                            outputBuffer.limit(bufferInfo.offset + bufferInfo.size)
+                            val realDataLength = outputBuffer.remaining()
+                            val outData = ByteArray(realDataLength)
+                            op.write(outData)
+                            //发送数据
+                            val packetLen = Packager.FLVPackager.FLV_VIDEO_TAG_LENGTH +
+                                    Packager.FLVPackager.NALU_HEADER_LENGTH +
+                                    realDataLength
+                            val finalBuff = ByteArray(packetLen)
+                            outputBuffer.get(
+                                finalBuff,
+                                Packager.FLVPackager.FLV_VIDEO_TAG_LENGTH + Packager.FLVPackager.NALU_HEADER_LENGTH,
+                                realDataLength
+                            )
+                            val frameType =
+                                finalBuff[Packager.FLVPackager.FLV_VIDEO_TAG_LENGTH + Packager.FLVPackager.NALU_HEADER_LENGTH] and 0x1F
+                            Packager.FLVPackager.fillFlvVideoTag(
+                                finalBuff,
+                                0,
+                                false,
+                                frameType == 5.toByte(),
+                                realDataLength
+                            )
+
+                            RtmpClient.write264(
+                                rtmpId,
+                                finalBuff,
+                                finalBuff.size,
+                                System.currentTimeMillis(),
+                                0x09
+                            )
+                            codec.releaseOutputBuffer(outputBufferIndex, false)
+                        }
+                    }
+                }
+                outputBufferIndex = codec.dequeueOutputBuffer(bufferInfo, 5000)
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -548,7 +608,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
                 CameraDevice.TEMPLATE_PREVIEW
             )
             previewRequestBuilder.addTarget(surface)
-            previewRequestBuilder.addTarget(imageReader?.surface)
+            previewRequestBuilder.addTarget(imageReader!!.surface)
 
             // Here, we create a CameraCaptureSession for camera preview.
             cameraDevice?.createCaptureSession(

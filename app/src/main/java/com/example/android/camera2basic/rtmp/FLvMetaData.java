@@ -20,14 +20,9 @@ public class FLvMetaData {
     public FLvMetaData() {
         MetaData = new ArrayList<>();
         DataSize = 0;
-    }
-
-    public FLvMetaData(RESCoreParameters coreParameters) {
-        this();
-        //Audio
-        //AAC
         setProperty("audiocodecid", 10);
-        switch (coreParameters.mediacodecAACBitRate) {
+        int bitRate = 64 * 1024;
+        switch (bitRate) {
             case 32 * 1024:
                 setProperty("audiodatarate", 32);
                 break;
@@ -38,8 +33,8 @@ public class FLvMetaData {
                 setProperty("audiodatarate", 64);
                 break;
         }
-
-        switch (coreParameters.mediacodecAACSampleRate) {
+        int aacSampleRate = 44100;
+        switch (aacSampleRate) {
             case 44100:
                 setProperty("audiosamplerate", 44100);
                 break;
@@ -49,9 +44,9 @@ public class FLvMetaData {
         //Video
         //h264
         setProperty("videocodecid", 7);
-        setProperty("framerate", coreParameters.mediacodecAVCFrameRate);
-        setProperty("width", coreParameters.videoWidth);
-        setProperty("height", coreParameters.videoHeight);
+        setProperty("framerate", 30);
+        setProperty("width", 720);
+        setProperty("height", 1280);
     }
 
     public void setProperty(String Key, int value) {
