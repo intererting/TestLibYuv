@@ -57,8 +57,10 @@ Java_com_example_android_camera2basic_rtmp_RtmpClient_open(JNIEnv *env, jclass t
 
 extern "C"
 JNIEXPORT jint JNICALL
-Java_com_example_android_camera2basic_rtmp_RtmpClient_write264(JNIEnv *env, jclass type_, jlong rtmp,
-                                                               jbyteArray data_, jint size, jlong times, jint type) {
+Java_com_example_android_camera2basic_rtmp_RtmpClient_write264(JNIEnv *env, jclass type_,
+                                                               jlong rtmp,
+                                                               jbyteArray data_, jint size,
+                                                               jlong times, jint type) {
     jbyte *buffer = env->GetByteArrayElements(data_, NULL);
     RTMPPacket *packet = (RTMPPacket *) malloc(sizeof(RTMPPacket));
     RTMPPacket_Alloc(packet, size);
@@ -96,9 +98,11 @@ Java_com_example_android_camera2basic_rtmp_RtmpClient_write264(JNIEnv *env, jcla
 
 extern "C"
 JNIEXPORT jint JNICALL
-Java_com_example_android_camera2basic_rtmp_RtmpClient_write(JNIEnv *env, jclass type_, jlong rtmp, jlong flv,
+Java_com_example_android_camera2basic_rtmp_RtmpClient_write(JNIEnv *env, jclass type_, jlong rtmp,
+                                                            jlong flv,
                                                             jboolean keyFrame,
-                                                            jbyteArray data_, jint size, jlong times, jint type) {
+                                                            jbyteArray data_, jint size,
+                                                            jlong times, jint type) {
     jbyte *buffer = env->GetByteArrayElements(data_, NULL);
     flv_t *handle = reinterpret_cast<flv_t *>(flv);
     //合成FLV
@@ -141,7 +145,8 @@ Java_com_example_android_camera2basic_rtmp_RtmpClient_write(JNIEnv *env, jclass 
 
 extern "C"
 JNIEXPORT jlong JNICALL
-Java_com_example_android_camera2basic_rtmp_RtmpClient_flvInit(JNIEnv *env, jclass type, jstring path_) {
+Java_com_example_android_camera2basic_rtmp_RtmpClient_flvInit(JNIEnv *env, jclass type,
+                                                              jstring path_) {
     const char *path = env->GetStringUTFChars(path_, 0);
 
     flv_t *handle = flv_init(path, 30, 720, 1280);
@@ -151,8 +156,10 @@ Java_com_example_android_camera2basic_rtmp_RtmpClient_flvInit(JNIEnv *env, jclas
 
 extern "C"
 JNIEXPORT jint JNICALL
-Java_com_example_android_camera2basic_rtmp_RtmpClient_writeMetadata(JNIEnv *env, jclass type_, jlong rtmp,
-                                                                    jbyteArray data_, jint size, jlong times,
+Java_com_example_android_camera2basic_rtmp_RtmpClient_writeMetadata(JNIEnv *env, jclass type_,
+                                                                    jlong rtmp,
+                                                                    jbyteArray data_, jint size,
+                                                                    jlong times,
                                                                     jint type) {
     jbyte *data = env->GetByteArrayElements(data_, NULL);
 
@@ -178,4 +185,15 @@ Java_com_example_android_camera2basic_rtmp_RtmpClient_writeMetadata(JNIEnv *env,
         LOGD("end write matedata success");
         return 0;
     }
+}
+
+
+extern "C"
+JNIEXPORT jlong JNICALL
+Java_com_example_android_camera2basic_rtmp_RtmpClient_close(JNIEnv *env, jclass type,
+                                                            jlong rtmp) {
+    RTMP_Close((RTMP *) rtmp);
+    RTMP_Free((RTMP *) rtmp);
+    return 0;
+
 }

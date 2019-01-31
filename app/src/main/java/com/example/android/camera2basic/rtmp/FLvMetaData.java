@@ -2,6 +2,9 @@ package com.example.android.camera2basic.rtmp;
 
 import java.util.ArrayList;
 
+import static com.example.android.camera2basic.rtmp.ConstantsKt.BIT_RATE;
+import static com.example.android.camera2basic.rtmp.ConstantsKt.SAMPLE_RATE;
+
 /**
  * This class is able to generate a FLVTAG in accordance with Adobe Flash Video File Format
  * Specification v10.1 Annex E.5 with limited types available.
@@ -21,26 +24,18 @@ public class FLvMetaData {
         MetaData = new ArrayList<>();
         DataSize = 0;
         setProperty("audiocodecid", 10);
-        int bitRate = 64 * 1024;
-        switch (bitRate) {
-            case 32 * 1024:
+        switch (BIT_RATE) {
+            case 32 * 1000:
                 setProperty("audiodatarate", 32);
                 break;
-            case 48 * 1024:
+            case 48 * 1000:
                 setProperty("audiodatarate", 48);
                 break;
-            case 64 * 1024:
+            case 64 * 1000:
                 setProperty("audiodatarate", 64);
                 break;
         }
-        int aacSampleRate = 44100;
-        switch (aacSampleRate) {
-            case 44100:
-                setProperty("audiosamplerate", 44100);
-                break;
-            default:
-                break;
-        }
+        setProperty("audiosamplerate", SAMPLE_RATE);
         //Video
         //h264
         setProperty("videocodecid", 7);

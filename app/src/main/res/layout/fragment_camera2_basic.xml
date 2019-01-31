@@ -30,6 +30,13 @@
         android:layout_height="wrap_content"
         android:text="切换摄像头" />
 
+    <Button
+        android:id="@+id/start"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/switchCamera"
+        android:text="开始直播" />
+
     <FrameLayout
         android:id="@+id/control"
         android:layout_width="match_parent"

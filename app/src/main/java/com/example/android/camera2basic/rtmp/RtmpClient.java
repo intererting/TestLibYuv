@@ -11,6 +11,8 @@ public class RtmpClient {
 
     public static native long flvInit(String path);
 
+    public static native long close(long rtmpPointer);
+
     //    public static native int read(long rtmpPointer, byte[] data, int offset, int size);
 //
     public static native int write(long rtmpPointer, long flvPointer, boolean keyFrame, byte[] data, int size, long time, int type);

@@ -29,13 +29,9 @@ import android.graphics.SurfaceTexture
 import android.hardware.camera2.*
 import android.media.ImageReader
 import android.media.MediaCodec
-import android.media.MediaCodec.INFO_TRY_AGAIN_LATER
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
-import android.os.Bundle
-import android.os.Handler
-import android.os.HandlerThread
-import android.os.Looper
+import android.os.*
 import android.support.v4.app.ActivityCompat
 import android.support.v4.app.Fragment
 import android.support.v4.content.ContextCompat
@@ -43,21 +39,24 @@ import android.util.Log
 import android.util.Size
 import android.util.SparseIntArray
 import android.view.*
-import com.example.android.camera2basic.rtmp.FLvMetaData
-import com.example.android.camera2basic.rtmp.Packager
-import com.example.android.camera2basic.rtmp.RTMP_PACKET_TYPE_VIDEO
-import com.example.android.camera2basic.rtmp.RtmpClient
+import android.widget.Toast
+import com.example.android.camera2basic.rtmp.*
 import com.yuliyang.testlibyuv.R
 import kotlinx.android.synthetic.main.fragment_camera2_basic.*
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.ByteBuffer
 import java.util.*
+import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 import kotlin.experimental.and
 
 class Camera2BasicFragment : Fragment(), View.OnClickListener,
         ActivityCompat.OnRequestPermissionsResultCallback {
+
+    private val videoQueue = LinkedBlockingQueue<ByteArray>()
+    private val audioQueue = LinkedBlockingQueue<ByteArray>()
 
     /**
      * [TextureView.SurfaceTextureListener] handles several lifecycle events on a
@@ -238,7 +237,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
      */
     private var sensorOrientation = 0
 
-    var rtmpId: Long = -1
+    var rtmpId: Long? = null
     var flvId: Long = -1
 
 
@@ -266,18 +265,24 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
         if (!flvTmpfile.exists()) {
             flvTmpfile.createNewFile()
         }
+        initCameraId()
         Thread {
             rtmpId = RtmpClient.open("rtmp://192.168.2.200/videotest", true)
-            flvId = RtmpClient.flvInit(flvTmpfile.absolutePath)
-            //发送MateData
-            val metadata = FLvMetaData()
-            RtmpClient.writeMetadata(
-                    rtmpId,
-                    metadata.metaData,
-                    metadata.metaData.size,
-                    System.currentTimeMillis(),
-                    0x12
-            )
+            if (rtmpId != null) {
+                //发送MateData
+                val metadata = FLvMetaData()
+                RtmpClient.writeMetadata(
+                        rtmpId!!,
+                        metadata.metaData,
+                        metadata.metaData.size,
+                        System.currentTimeMillis(),
+                        0x12
+                )
+                activity!!.runOnUiThread {
+                    Toast.makeText(activity!!, "连接成功", Toast.LENGTH_SHORT).show()
+                }
+            }
+//            flvId = RtmpClient.flvInit(flvTmpfile.absolutePath)
         }.start()
 
         switchCamera.setOnClickListener {
@@ -289,7 +294,33 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
             closeCamera()
             openCamera(textureView.width, textureView.height)
         }
-        initCameraId()
+
+        start.setOnClickListener {
+            startBackgroundThread()
+
+            AudioRecorder.startAudioRecording({
+                val packetLen = Packager.FLVPackager.FLV_AUDIO_TAG_LENGTH + it.remaining()
+                val finalBuff = ByteArray(packetLen)
+                it.get(finalBuff, Packager.FLVPackager.FLV_AUDIO_TAG_LENGTH, it.remaining())
+                Packager.FLVPackager.fillFlvAudioTag(finalBuff,
+                        0,
+                        false)
+                audioQueue.offer(finalBuff)
+            }, {
+                sendAudioSpecificConfig(it)
+            })
+            // When the screen is turned off and turned back on, the SurfaceTexture is already
+            // available, and "onSurfaceTextureAvailable" will not be called. In that case, we can open
+            // a camera and start preview from here (otherwise, we wait until the surface is ready in
+            // the SurfaceTextureListener).
+            if (textureView.isAvailable) {
+                openCamera(textureView.width, textureView.height)
+            } else {
+                textureView.surfaceTextureListener = surfaceTextureListener
+            }
+            sendAudioBuffer()
+            sendVideoBuffer()
+        }
     }
 
     private fun initCameraId() {
@@ -313,32 +344,38 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
         cameraId = backCameraId
     }
 
-    override fun onResume() {
-        super.onResume()
-        startBackgroundThread()
-
-        // When the screen is turned off and turned back on, the SurfaceTexture is already
-        // available, and "onSurfaceTextureAvailable" will not be called. In that case, we can open
-        // a camera and start preview from here (otherwise, we wait until the surface is ready in
-        // the SurfaceTextureListener).
-        if (textureView.isAvailable) {
-            openCamera(textureView.width, textureView.height)
-        } else {
-            textureView.surfaceTextureListener = surfaceTextureListener
-        }
-    }
-
     override fun onPause() {
         closeCamera()
         stopBackgroundThread()
+        AudioRecorder.stopAudioRecording()
         super.onPause()
+    }
+
+    /**
+     * 录音格式变化
+     */
+    private fun sendAudioSpecificConfig(realData: ByteBuffer) {
+        val packetLen = Packager.FLVPackager.FLV_AUDIO_TAG_LENGTH + realData.remaining()
+        val finalBuff = ByteArray(packetLen)
+        realData.get(finalBuff, Packager.FLVPackager.FLV_AUDIO_TAG_LENGTH,
+                realData.remaining())
+        Packager.FLVPackager.fillFlvAudioTag(finalBuff,
+                0,
+                true)
+        RtmpClient.write264(
+                rtmpId!!,
+                finalBuff,
+                finalBuff.size,
+                System.currentTimeMillis(),
+                RTMP_PACKET_TYPE_AUDIO
+        )
     }
 
     private fun requestCameraPermission() {
         if (shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
             ConfirmationDialog().show(childFragmentManager, FRAGMENT_DIALOG)
         } else {
-            requestPermissions(arrayOf(Manifest.permission.CAMERA), REQUEST_CAMERA_PERMISSION)
+            requestPermissions(arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO), REQUEST_CAMERA_PERMISSION)
         }
     }
 
@@ -442,6 +479,36 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
         }
     }
 
+    private fun sendVideoBuffer() {
+        Thread {
+            while (true) {
+                val buff = videoQueue.take()
+                RtmpClient.write264(
+                        rtmpId!!,
+                        buff,
+                        buff.size,
+                        System.currentTimeMillis(),
+                        RTMP_PACKET_TYPE_VIDEO
+                )
+            }
+        }.start()
+    }
+
+    private fun sendAudioBuffer() {
+        Thread {
+            while (true) {
+                val buff = audioQueue.take()
+                RtmpClient.write264(
+                        rtmpId!!,
+                        buff,
+                        buff.size,
+                        System.currentTimeMillis(),
+                        RTMP_PACKET_TYPE_AUDIO)
+            }
+        }.start()
+    }
+
+
     @SuppressLint("SwitchIntDef")
     fun encoderYUV420(input: ByteArray) {
         try {
@@ -457,9 +524,6 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
             val bufferInfo = MediaCodec.BufferInfo()
             var outputBufferIndex = codec.dequeueOutputBuffer(bufferInfo, 5000)
             while (true) {
-                if (outputBufferIndex < 0 && outputBufferIndex != MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                    break
-                }
                 when (outputBufferIndex) {
                     MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                         println("INFO_OUTPUT_FORMAT_CHANGED")
@@ -482,22 +546,16 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
                                 Packager.FLVPackager.FLV_VIDEO_TAG_LENGTH,
                                 mAVCDecoderConfigurationRecord.size
                         )
-                        RtmpClient.write264(
-                                rtmpId,
-                                finalBuff,
-                                finalBuff.size,
-                                System.currentTimeMillis(),
-                                0x09
-                        )
+                        videoQueue.offer(finalBuff)
                     }
-                    else -> {
+                    in (1..Int.MAX_VALUE) -> {
                         val outputBuffer = codec.getOutputBuffer(outputBufferIndex)
                         outputBuffer?.apply {
                             outputBuffer.position(bufferInfo.offset + 4)
                             outputBuffer.limit(bufferInfo.offset + bufferInfo.size)
                             val realDataLength = outputBuffer.remaining()
-                            val outData = ByteArray(realDataLength)
-                            op.write(outData)
+//                            val outData = ByteArray(realDataLength)
+//                            op.write(outData)
                             //发送数据
                             val packetLen = Packager.FLVPackager.FLV_VIDEO_TAG_LENGTH +
                                     Packager.FLVPackager.NALU_HEADER_LENGTH +
@@ -518,16 +576,11 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
                                     realDataLength
                             )
 
-                            RtmpClient.write264(
-                                    rtmpId,
-                                    finalBuff,
-                                    finalBuff.size,
-                                    System.currentTimeMillis(), RTMP_PACKET_TYPE_VIDEO
-                            )
-                            codec.releaseOutputBuffer(outputBufferIndex, false)
+                            videoQueue.offer(finalBuff)
                         }
                     }
                 }
+                codec.releaseOutputBuffer(outputBufferIndex, false)
                 outputBufferIndex = codec.dequeueOutputBuffer(bufferInfo, 5000)
             }
         } catch (e: Exception) {
@@ -543,6 +596,9 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
     override fun onDestroy() {
         super.onDestroy()
         releaseMediaCodec()
+        rtmpId?.apply {
+            RtmpClient.close(this)
+        }
     }
 
     /**
@@ -648,7 +704,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
                                 // Auto focus should be continuous for camera preview.
                                 previewRequestBuilder.set(
                                         CaptureRequest.CONTROL_AF_MODE,
-                                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE
+                                        CaptureRequest.CONTROL_AE_ANTIBANDING_MODE_AUTO
                                 )
                                 // Flash is automatically enabled when necessary.
                                 setAutoFlash(previewRequestBuilder)
