@@ -1,9 +1,11 @@
-package com.example.android.camera2basic.rtmp
+package com.example.android.camera2basic
 
 import android.annotation.SuppressLint
 import android.media.*
 import android.media.audiofx.AcousticEchoCanceler
 import android.util.Log
+import com.example.android.camera2basic.rtmp.BIT_RATE
+import com.example.android.camera2basic.rtmp.SAMPLE_RATE
 import java.io.IOException
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
@@ -63,8 +65,8 @@ object AudioRecorder {
 
     /*开始录音*/
     fun startAudioRecording(callBack: AudioCallBack, codecCallback: CodecChangeCallBack) {
-        this.callBack = callBack
-        this.codecCallback = codecCallback
+        AudioRecorder.callBack = callBack
+        AudioRecorder.codecCallback = codecCallback
         if (!recorderThread.isAlive) {
             initAACMediaEncode()
             recorderThread.start()
@@ -94,13 +96,19 @@ object AudioRecorder {
     class RecorderTask : Runnable {
         override fun run() {
             //获取最小缓冲区大小
-            val bufferSizeInBytes = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT)
+            val bufferSizeInBytes = AudioRecord.getMinBufferSize(
+                SAMPLE_RATE,
+                CHANNEL_CONFIG,
+                AUDIO_FORMAT
+            )
             //回声消除
-            audioRecord = AudioRecord(AUDIO_SOURCE,
-                    SAMPLE_RATE,
-                    CHANNEL_CONFIG,
-                    AUDIO_FORMAT,
-                    bufferSizeInBytes * 8)
+            audioRecord = AudioRecord(
+                AUDIO_SOURCE,
+                SAMPLE_RATE,
+                CHANNEL_CONFIG,
+                AUDIO_FORMAT,
+                bufferSizeInBytes * 8
+            )
             if (isDeviceSupport) {
                 initAEC(audioRecord!!.audioSessionId)
             }
@@ -135,11 +143,17 @@ object AudioRecorder {
     private fun initAACMediaEncode() {
         try {
             //参数对应-> mime type、采样率、声道数
-            val encodeFormat = MediaFormat.createAudioFormat(encodeType, SAMPLE_RATE, 1)
+            val encodeFormat = MediaFormat.createAudioFormat(
+                encodeType,
+                SAMPLE_RATE, 1
+            )
             encodeFormat.setInteger(MediaFormat.KEY_BIT_RATE, BIT_RATE)//比特率
             encodeFormat.setInteger(MediaFormat.KEY_CHANNEL_MASK, AudioFormat.CHANNEL_IN_MONO)
             encodeFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
-            encodeFormat.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, maxBufferSize)//作用于inputBuffer的大小
+            encodeFormat.setInteger(
+                MediaFormat.KEY_MAX_INPUT_SIZE,
+                maxBufferSize
+            )//作用于inputBuffer的大小
             mediaEncode = MediaCodec.createEncoderByType(encodeType)
             mediaEncode.configure(encodeFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
         } catch (e: IOException) {
@@ -169,7 +183,7 @@ object AudioRecorder {
                     val csd0 = mediaEncode.outputFormat.getByteBuffer("csd-0")
                     codecCallback?.invoke(csd0)
                 }
-                in (1..Int.MAX_VALUE) -> {
+                in (0..Int.MAX_VALUE) -> {
                     outputBuffer = mediaEncode.getOutputBuffer(outputIndex)
                     outputBuffer.position(encodeBufferInfo.offset)
                     outputBuffer.limit(encodeBufferInfo.offset + encodeBufferInfo.size)

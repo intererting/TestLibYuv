@@ -53,7 +53,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.experimental.and
 
 class Camera2BasicFragment : Fragment(), View.OnClickListener,
-        ActivityCompat.OnRequestPermissionsResultCallback {
+    ActivityCompat.OnRequestPermissionsResultCallback {
 
     private val videoQueue = LinkedBlockingQueue<ByteArray>()
     private val audioQueue = LinkedBlockingQueue<ByteArray>()
@@ -189,19 +189,19 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
 
             //旋转90
             YuvUtil.rotateYUV(
-                    Ydatas,
-                    image.planes[0].rowStride,
-                    UVdatas,
-                    image.planes[1].rowStride,
-                    outYDatas,
-                    streamSize.height,
-                    outUDatas,
-                    streamSize.height / 2,
-                    outVDatas,
-                    streamSize.height / 2,
-                    streamSize.width,
-                    streamSize.height,
-                    if (cameraId == backCameraId) 90 else 270
+                Ydatas,
+                image.planes[0].rowStride,
+                UVdatas,
+                image.planes[1].rowStride,
+                outYDatas,
+                streamSize.height,
+                outUDatas,
+                streamSize.height / 2,
+                outVDatas,
+                streamSize.height / 2,
+                streamSize.width,
+                streamSize.height,
+                if (cameraId == backCameraId) 90 else 270
             )
             val resultArray = ByteArray(outYDatas.size + outUDatas.size + outVDatas.size)
             System.arraycopy(outYDatas, 0, resultArray, 0, outYDatas.size)
@@ -242,9 +242,9 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
 
 
     override fun onCreateView(
-            inflater: LayoutInflater,
-            container: ViewGroup?,
-            savedInstanceState: Bundle?
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
     ): View? = inflater.inflate(R.layout.fragment_camera2_basic, container, false)
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -272,11 +272,11 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
                 //发送MateData
                 val metadata = FLvMetaData()
                 RtmpClient.writeMetadata(
-                        rtmpId!!,
-                        metadata.metaData,
-                        metadata.metaData.size,
-                        System.currentTimeMillis(),
-                        0x12
+                    rtmpId!!,
+                    metadata.metaData,
+                    metadata.metaData.size,
+                    System.currentTimeMillis(),
+                    0x12
                 )
                 activity!!.runOnUiThread {
                     Toast.makeText(activity!!, "连接成功", Toast.LENGTH_SHORT).show()
@@ -302,9 +302,11 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
                 val packetLen = Packager.FLVPackager.FLV_AUDIO_TAG_LENGTH + it.remaining()
                 val finalBuff = ByteArray(packetLen)
                 it.get(finalBuff, Packager.FLVPackager.FLV_AUDIO_TAG_LENGTH, it.remaining())
-                Packager.FLVPackager.fillFlvAudioTag(finalBuff,
-                        0,
-                        false)
+                Packager.FLVPackager.fillFlvAudioTag(
+                    finalBuff,
+                    0,
+                    false
+                )
                 audioQueue.offer(finalBuff)
             }, {
                 sendAudioSpecificConfig(it)
@@ -318,7 +320,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
             } else {
                 textureView.surfaceTextureListener = surfaceTextureListener
             }
-            sendAudioBuffer()
+//            sendAudioBuffer()
             sendVideoBuffer()
         }
     }
@@ -357,17 +359,21 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
     private fun sendAudioSpecificConfig(realData: ByteBuffer) {
         val packetLen = Packager.FLVPackager.FLV_AUDIO_TAG_LENGTH + realData.remaining()
         val finalBuff = ByteArray(packetLen)
-        realData.get(finalBuff, Packager.FLVPackager.FLV_AUDIO_TAG_LENGTH,
-                realData.remaining())
-        Packager.FLVPackager.fillFlvAudioTag(finalBuff,
-                0,
-                true)
+        realData.get(
+            finalBuff, Packager.FLVPackager.FLV_AUDIO_TAG_LENGTH,
+            realData.remaining()
+        )
+        Packager.FLVPackager.fillFlvAudioTag(
+            finalBuff,
+            0,
+            true
+        )
         RtmpClient.write264(
-                rtmpId!!,
-                finalBuff,
-                finalBuff.size,
-                System.currentTimeMillis(),
-                RTMP_PACKET_TYPE_AUDIO
+            rtmpId!!,
+            finalBuff,
+            finalBuff.size,
+            System.currentTimeMillis(),
+            RTMP_PACKET_TYPE_AUDIO
         )
     }
 
@@ -375,19 +381,22 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
         if (shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
             ConfirmationDialog().show(childFragmentManager, FRAGMENT_DIALOG)
         } else {
-            requestPermissions(arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO), REQUEST_CAMERA_PERMISSION)
+            requestPermissions(
+                arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO),
+                REQUEST_CAMERA_PERMISSION
+            )
         }
     }
 
     override fun onRequestPermissionsResult(
-            requestCode: Int,
-            permissions: Array<String>,
-            grantResults: IntArray
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
     ) {
         if (requestCode == REQUEST_CAMERA_PERMISSION) {
             if (grantResults.size != 1 || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
                 ErrorDialog.newInstance(getString(R.string.request_permission))
-                        .show(childFragmentManager, FRAGMENT_DIALOG)
+                    .show(childFragmentManager, FRAGMENT_DIALOG)
             }
         } else {
             super.onRequestPermissionsResult(requestCode, permissions, grantResults)
@@ -407,7 +416,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
             val characteristics = manager.getCameraCharacteristics(cameraId)
 
             val map = characteristics.get(
-                    CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP
+                CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP
             ) ?: return
 
             val supportSise = map.getOutputSizes(ImageFormat.YUV_420_888)
@@ -419,8 +428,8 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
             streamSize = aspectRatioSize[aspectRatioSize.size / 2]
 
             imageReader = ImageReader.newInstance(
-                    streamSize.width, streamSize.height,
-                    ImageFormat.YUV_420_888, /*maxImages*/ 1
+                streamSize.width, streamSize.height,
+                ImageFormat.YUV_420_888, /*maxImages*/ 1
             ).apply {
                 setOnImageAvailableListener(onImageAvailableListener, backgroundHandler)
             }
@@ -428,8 +437,8 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
             sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION)!!
 
             previewSize = chooseOptimalSize(
-                    supportSise,
-                    activity!!.screenWidth, activity!!.screenHeight
+                supportSise,
+                activity!!.screenWidth, activity!!.screenHeight
             )
 
             println("previceSize ${previewSize.width} ${previewSize.height}")
@@ -453,7 +462,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
             // Currently an NPE is thrown when the Camera2API is used but not supported on the
             // device this code runs.
             ErrorDialog.newInstance(getString(R.string.camera_error))
-                    .show(childFragmentManager, FRAGMENT_DIALOG)
+                .show(childFragmentManager, FRAGMENT_DIALOG)
         }
 
     }
@@ -468,8 +477,8 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
             format.setInteger(MediaFormat.KEY_BIT_RATE, 3500 * 1000);
             format.setInteger(MediaFormat.KEY_FRAME_RATE, 30);
             format.setInteger(
-                    MediaFormat.KEY_COLOR_FORMAT,
-                    MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible
+                MediaFormat.KEY_COLOR_FORMAT,
+                MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible
             )
             format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
             codec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
@@ -484,11 +493,11 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
             while (true) {
                 val buff = videoQueue.take()
                 RtmpClient.write264(
-                        rtmpId!!,
-                        buff,
-                        buff.size,
-                        System.currentTimeMillis(),
-                        RTMP_PACKET_TYPE_VIDEO
+                    rtmpId!!,
+                    buff,
+                    buff.size,
+                    System.currentTimeMillis(),
+                    RTMP_PACKET_TYPE_VIDEO
                 )
             }
         }.start()
@@ -499,11 +508,12 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
             while (true) {
                 val buff = audioQueue.take()
                 RtmpClient.write264(
-                        rtmpId!!,
-                        buff,
-                        buff.size,
-                        System.currentTimeMillis(),
-                        RTMP_PACKET_TYPE_AUDIO)
+                    rtmpId!!,
+                    buff,
+                    buff.size,
+                    System.currentTimeMillis(),
+                    RTMP_PACKET_TYPE_AUDIO
+                )
             }
         }.start()
     }
@@ -524,31 +534,32 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
             val bufferInfo = MediaCodec.BufferInfo()
             var outputBufferIndex = codec.dequeueOutputBuffer(bufferInfo, 5000)
             while (true) {
+                println(outputBufferIndex)
                 when (outputBufferIndex) {
                     MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                         println("INFO_OUTPUT_FORMAT_CHANGED")
                         val mAVCDecoderConfigurationRecord =
-                                Packager.H264Packager.generateAVCDecoderConfigurationRecord(codec.outputFormat)
+                            Packager.H264Packager.generateAVCDecoderConfigurationRecord(codec.outputFormat)
                         val packetLen =
-                                Packager.FLVPackager.FLV_VIDEO_TAG_LENGTH + mAVCDecoderConfigurationRecord.size
+                            Packager.FLVPackager.FLV_VIDEO_TAG_LENGTH + mAVCDecoderConfigurationRecord.size
                         val finalBuff = ByteArray(packetLen)
                         Packager.FLVPackager.fillFlvVideoTag(
-                                finalBuff,
-                                0,
-                                true,
-                                true,
-                                mAVCDecoderConfigurationRecord.size
+                            finalBuff,
+                            0,
+                            true,
+                            true,
+                            mAVCDecoderConfigurationRecord.size
                         )
                         System.arraycopy(
-                                mAVCDecoderConfigurationRecord,
-                                0,
-                                finalBuff,
-                                Packager.FLVPackager.FLV_VIDEO_TAG_LENGTH,
-                                mAVCDecoderConfigurationRecord.size
+                            mAVCDecoderConfigurationRecord,
+                            0,
+                            finalBuff,
+                            Packager.FLVPackager.FLV_VIDEO_TAG_LENGTH,
+                            mAVCDecoderConfigurationRecord.size
                         )
                         videoQueue.offer(finalBuff)
                     }
-                    in (1..Int.MAX_VALUE) -> {
+                    in (0..Int.MAX_VALUE) -> {
                         val outputBuffer = codec.getOutputBuffer(outputBufferIndex)
                         outputBuffer?.apply {
                             outputBuffer.position(bufferInfo.offset + 4)
@@ -562,18 +573,18 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
                                     realDataLength
                             val finalBuff = ByteArray(packetLen)
                             outputBuffer.get(
-                                    finalBuff,
-                                    Packager.FLVPackager.FLV_VIDEO_TAG_LENGTH + Packager.FLVPackager.NALU_HEADER_LENGTH,
-                                    realDataLength
+                                finalBuff,
+                                Packager.FLVPackager.FLV_VIDEO_TAG_LENGTH + Packager.FLVPackager.NALU_HEADER_LENGTH,
+                                realDataLength
                             )
                             val frameType =
-                                    finalBuff[Packager.FLVPackager.FLV_VIDEO_TAG_LENGTH + Packager.FLVPackager.NALU_HEADER_LENGTH] and 0x1F
+                                finalBuff[Packager.FLVPackager.FLV_VIDEO_TAG_LENGTH + Packager.FLVPackager.NALU_HEADER_LENGTH] and 0x1F
                             Packager.FLVPackager.fillFlvVideoTag(
-                                    finalBuff,
-                                    0,
-                                    false,
-                                    frameType == 5.toByte(),
-                                    realDataLength
+                                finalBuff,
+                                0,
+                                false,
+                                frameType == 5.toByte(),
+                                realDataLength
                             )
 
                             videoQueue.offer(finalBuff)
@@ -684,47 +695,47 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
 
             // We set up a CaptureRequest.Builder with the output Surface.
             previewRequestBuilder = cameraDevice!!.createCaptureRequest(
-                    CameraDevice.TEMPLATE_PREVIEW
+                CameraDevice.TEMPLATE_PREVIEW
             )
             previewRequestBuilder.addTarget(surface)
             previewRequestBuilder.addTarget(imageReader!!.surface)
 
             // Here, we create a CameraCaptureSession for camera preview.
             cameraDevice?.createCaptureSession(
-                    Arrays.asList(surface, imageReader?.surface),
-                    object : CameraCaptureSession.StateCallback() {
+                Arrays.asList(surface, imageReader?.surface),
+                object : CameraCaptureSession.StateCallback() {
 
-                        override fun onConfigured(cameraCaptureSession: CameraCaptureSession) {
-                            // The camera is already closed
-                            if (cameraDevice == null) return
+                    override fun onConfigured(cameraCaptureSession: CameraCaptureSession) {
+                        // The camera is already closed
+                        if (cameraDevice == null) return
 
-                            // When the session is ready, we start displaying the preview.
-                            captureSession = cameraCaptureSession
-                            try {
-                                // Auto focus should be continuous for camera preview.
-                                previewRequestBuilder.set(
-                                        CaptureRequest.CONTROL_AF_MODE,
-                                        CaptureRequest.CONTROL_AE_ANTIBANDING_MODE_AUTO
-                                )
-                                // Flash is automatically enabled when necessary.
-                                setAutoFlash(previewRequestBuilder)
+                        // When the session is ready, we start displaying the preview.
+                        captureSession = cameraCaptureSession
+                        try {
+                            // Auto focus should be continuous for camera preview.
+                            previewRequestBuilder.set(
+                                CaptureRequest.CONTROL_AF_MODE,
+                                CaptureRequest.CONTROL_AF_MODE_AUTO
+                            )
+                            // Flash is automatically enabled when necessary.
+                            setAutoFlash(previewRequestBuilder)
 
-                                // Finally, we start displaying the camera preview.
-                                previewRequest = previewRequestBuilder.build()
-                                captureSession?.setRepeatingRequest(
-                                        previewRequest,
-                                        null, backgroundHandler
-                                )
-                            } catch (e: CameraAccessException) {
-                                Log.e(TAG, e.toString())
-                            }
-
+                            // Finally, we start displaying the camera preview.
+                            previewRequest = previewRequestBuilder.build()
+                            captureSession?.setRepeatingRequest(
+                                previewRequest,
+                                null, backgroundHandler
+                            )
+                        } catch (e: CameraAccessException) {
+                            Log.e(TAG, e.toString())
                         }
 
-                        override fun onConfigureFailed(session: CameraCaptureSession) {
-                            activity!!.showToast("Failed")
-                        }
-                    }, null
+                    }
+
+                    override fun onConfigureFailed(session: CameraCaptureSession) {
+                        activity!!.showToast("Failed")
+                    }
+                }, null
             )
         } catch (e: CameraAccessException) {
             Log.e(TAG, e.toString())
@@ -753,8 +764,8 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
         if (Surface.ROTATION_90 == rotation || Surface.ROTATION_270 == rotation) {
             bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY())
             val scale = Math.max(
-                    viewHeight.toFloat() / previewSize.height,
-                    viewWidth.toFloat() / previewSize.width
+                viewHeight.toFloat() / previewSize.height,
+                viewWidth.toFloat() / previewSize.width
             )
             with(matrix) {
                 setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL)
@@ -797,7 +808,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
 
             // This is the CaptureRequest.Builder that we use to take a picture.
             val captureBuilder = cameraDevice?.createCaptureRequest(
-                    CameraDevice.TEMPLATE_STILL_CAPTURE
+                CameraDevice.TEMPLATE_STILL_CAPTURE
             )?.apply {
                 addTarget(imageReader!!.surface)
 
@@ -806,23 +817,23 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
                 // For devices with orientation of 90, we return our mapping from ORIENTATIONS.
                 // For devices with orientation of 270, we need to rotate the JPEG 180 degrees.
                 set(
-                        CaptureRequest.JPEG_ORIENTATION,
-                        (ORIENTATIONS.get(rotation) + sensorOrientation + 270) % 360
+                    CaptureRequest.JPEG_ORIENTATION,
+                    (ORIENTATIONS.get(rotation) + sensorOrientation + 270) % 360
                 )
 
                 // Use the same AE and AF modes as the preview.
                 set(
-                        CaptureRequest.CONTROL_AF_MODE,
-                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE
+                    CaptureRequest.CONTROL_AF_MODE,
+                    CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE
                 )
             }
 
             val captureCallback = object : CameraCaptureSession.CaptureCallback() {
 
                 override fun onCaptureCompleted(
-                        session: CameraCaptureSession,
-                        request: CaptureRequest,
-                        result: TotalCaptureResult
+                    session: CameraCaptureSession,
+                    request: CaptureRequest,
+                    result: TotalCaptureResult
                 ) {
                     Log.d(TAG, file.toString())
                     unlockFocus()
@@ -847,9 +858,9 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
             R.id.info -> {
                 if (activity != null) {
                     AlertDialog.Builder(activity)
-                            .setMessage(R.string.intro_message)
-                            .setPositiveButton(android.R.string.ok, null)
-                            .show()
+                        .setMessage(R.string.intro_message)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
                 }
             }
         }
@@ -863,13 +874,13 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
         try {
             // Reset the auto-focus trigger
             previewRequestBuilder.set(
-                    CaptureRequest.CONTROL_AF_TRIGGER,
-                    CameraMetadata.CONTROL_AF_TRIGGER_CANCEL
+                CaptureRequest.CONTROL_AF_TRIGGER,
+                CameraMetadata.CONTROL_AF_TRIGGER_CANCEL
             )
             // After this, the camera will go back to the normal state of preview.
             captureSession?.setRepeatingRequest(
-                    previewRequest, null,
-                    backgroundHandler
+                previewRequest, null,
+                backgroundHandler
             )
         } catch (e: CameraAccessException) {
             Log.e(TAG, e.toString())
@@ -880,8 +891,8 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
     private fun setAutoFlash(requestBuilder: CaptureRequest.Builder) {
         if (flashSupported) {
             requestBuilder.set(
-                    CaptureRequest.CONTROL_AE_MODE,
-                    CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH
+                CaptureRequest.CONTROL_AE_MODE,
+                CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH
             )
         }
     }
@@ -908,9 +919,9 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
 
         @JvmStatic
         private fun chooseOptimalSize(
-                choices: Array<Size>,
-                screenWidth: Int,
-                screenHeight: Int
+            choices: Array<Size>,
+            screenWidth: Int,
+            screenHeight: Int
         ): Size {
             //优先考虑全屏
             for (option in choices) {
