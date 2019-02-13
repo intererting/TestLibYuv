@@ -119,7 +119,7 @@ inline val Context.screenWidth: Int
 /**
  * 获取屏幕高度
  */
-inline val Context.screenHeight: Int
+inline val Context.screenHeightIncludeStatusBar: Int
     get() {
         val wm: WindowManager? = getSystemService(Context.WINDOW_SERVICE) as? WindowManager
         wm?.apply {
@@ -131,9 +131,23 @@ inline val Context.screenHeight: Int
     }
 
 /**
+ * 获取屏幕宽度
+ */
+inline val Context.screenWidthIncludeStatusBar: Int
+    get() {
+        val wm: WindowManager? = getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+        wm?.apply {
+            val point = Point()
+            wm.defaultDisplay.getRealSize(point)
+            return point.x
+        }
+        return 0
+    }
+
+/**
  * 获取屏幕高度(不包括底部导航栏)
  */
-inline val Context.screenRealHeight: Int
+inline val Context.screenHeight: Int
     get() {
         val wm: WindowManager? = getSystemService(Context.WINDOW_SERVICE) as? WindowManager
         wm?.apply {

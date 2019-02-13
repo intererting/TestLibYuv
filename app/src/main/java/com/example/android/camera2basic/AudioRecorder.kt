@@ -25,7 +25,7 @@ object AudioRecorder {
     private var callBack: AudioCallBack? = null
     private var codecCallback: CodecChangeCallBack? = null
 
-    private lateinit var mediaEncode: MediaCodec
+    private var mediaEncode: MediaCodec? = null
     private lateinit var encodeBufferInfo: MediaCodec.BufferInfo
     private var recorderThread: Thread
 
@@ -75,21 +75,24 @@ object AudioRecorder {
 
     /*停止录音*/
     fun stopAudioRecording() {
-        if (audioRecord != null) {
+        audioRecord?.apply {
             isRecording.compareAndSet(true, false)
-            audioRecord!!.stop()
-            audioRecord!!.release()
+            stop()
+            release()
             audioRecord = null
         }
         //释放回声消除器
         setAECEnabled(false)
-        try {
-            mediaEncode.stop()
-            mediaEncode.release()
-        } catch (e: IllegalStateException) {
-            e.printStackTrace()
-        } catch (e: IllegalArgumentException) {
-            e.printStackTrace()
+        mediaEncode?.apply {
+            try {
+                stop()
+                release()
+                mediaEncode = null
+            } catch (e: IllegalStateException) {
+                e.printStackTrace()
+            } catch (e: IllegalArgumentException) {
+                e.printStackTrace()
+            }
         }
     }
 
@@ -112,7 +115,7 @@ object AudioRecorder {
             if (isDeviceSupport) {
                 initAEC(audioRecord!!.audioSessionId)
             }
-            mediaEncode.start()
+            mediaEncode!!.start()
             audioRecord!!.startRecording()
             isRecording.compareAndSet(false, true)
 
@@ -153,9 +156,10 @@ object AudioRecorder {
             encodeFormat.setInteger(
                 MediaFormat.KEY_MAX_INPUT_SIZE,
                 maxBufferSize
-            )//作用于inputBuffer的大小
+            )
+            //作用于inputBuffer的大小
             mediaEncode = MediaCodec.createEncoderByType(encodeType)
-            mediaEncode.configure(encodeFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+            mediaEncode!!.configure(encodeFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
         } catch (e: IOException) {
             println("initAACMediaEncode error")
             e.printStackTrace()
@@ -167,31 +171,34 @@ object AudioRecorder {
      */
     @SuppressLint("SwitchIntDef")
     private fun dstAudioFormatFromPCM(pcmData: ByteArray) {
-        val inputBuffer: ByteBuffer?
-        var outputBuffer: ByteBuffer?
-        encodeBufferInfo = MediaCodec.BufferInfo()
-        val inputIndex = mediaEncode.dequeueInputBuffer(5000)
-        inputBuffer = mediaEncode.getInputBuffer(inputIndex)
-        inputBuffer.clear()
-        inputBuffer.limit(pcmData.size)
-        inputBuffer.put(pcmData)//PCM数据填充给inputBuffer
-        mediaEncode.queueInputBuffer(inputIndex, 0, pcmData.size, 0, 0)//通知编码器 编码
-        var outputIndex = mediaEncode.dequeueOutputBuffer(encodeBufferInfo, 5000)
-        while (true) {
-            when (outputIndex) {
-                MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
-                    val csd0 = mediaEncode.outputFormat.getByteBuffer("csd-0")
-                    codecCallback?.invoke(csd0)
+        mediaEncode?.apply {
+            val inputBuffer: ByteBuffer?
+            var outputBuffer: ByteBuffer?
+            encodeBufferInfo = MediaCodec.BufferInfo()
+            val inputIndex = dequeueInputBuffer(5000)
+            inputBuffer = getInputBuffer(inputIndex)
+            inputBuffer.clear()
+            inputBuffer.limit(pcmData.size)
+            inputBuffer.put(pcmData)//PCM数据填充给inputBuffer
+            queueInputBuffer(inputIndex, 0, pcmData.size, 0, 0)//通知编码器 编码
+            var outputIndex = dequeueOutputBuffer(encodeBufferInfo, 5000)
+            while (true) {
+                when (outputIndex) {
+                    MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                        val csd0 = outputFormat.getByteBuffer("csd-0")
+                        codecCallback?.invoke(csd0)
+                    }
+                    in (0..Int.MAX_VALUE) -> {
+                        outputBuffer = getOutputBuffer(outputIndex)
+                        outputBuffer.position(encodeBufferInfo.offset)
+                        outputBuffer.limit(encodeBufferInfo.offset + encodeBufferInfo.size)
+                        callBack?.invoke(outputBuffer)
+                    }
                 }
-                in (0..Int.MAX_VALUE) -> {
-                    outputBuffer = mediaEncode.getOutputBuffer(outputIndex)
-                    outputBuffer.position(encodeBufferInfo.offset)
-                    outputBuffer.limit(encodeBufferInfo.offset + encodeBufferInfo.size)
-                    callBack?.invoke(outputBuffer)
-                }
+                releaseOutputBuffer(outputIndex, false)
+                outputIndex = dequeueOutputBuffer(encodeBufferInfo, 5000)
             }
-            mediaEncode.releaseOutputBuffer(outputIndex, false)
-            outputIndex = mediaEncode.dequeueOutputBuffer(encodeBufferInfo, 5000)
         }
+
     }
 }

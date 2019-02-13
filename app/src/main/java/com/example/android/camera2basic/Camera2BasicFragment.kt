@@ -21,7 +21,6 @@ import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.Context
 import android.content.pm.PackageManager
-import android.content.res.Configuration
 import android.graphics.ImageFormat
 import android.graphics.Matrix
 import android.graphics.RectF
@@ -31,7 +30,10 @@ import android.media.ImageReader
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
-import android.os.*
+import android.os.Bundle
+import android.os.Handler
+import android.os.HandlerThread
+import android.os.Looper
 import android.support.v4.app.ActivityCompat
 import android.support.v4.app.Fragment
 import android.support.v4.content.ContextCompat
@@ -42,6 +44,7 @@ import android.view.*
 import android.widget.Toast
 import com.example.android.camera2basic.rtmp.*
 import com.yuliyang.testlibyuv.R
+import com.yuliyang.testlibyuv.isScreenPortrait
 import kotlinx.android.synthetic.main.fragment_camera2_basic.*
 import java.io.File
 import java.io.FileOutputStream
@@ -52,9 +55,13 @@ import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 import kotlin.experimental.and
 
+const val CAMERA_TYPE_PORI_PORI = 0//竖屏直播竖屏看
+const val CAMERA_TYPE_PORI_LAND = 1//竖屏直播横屏看
+
 class Camera2BasicFragment : Fragment(), View.OnClickListener,
     ActivityCompat.OnRequestPermissionsResultCallback {
 
+    private val cameraType = CAMERA_TYPE_PORI_PORI
     private val videoQueue = LinkedBlockingQueue<ByteArray>()
     private val audioQueue = LinkedBlockingQueue<ByteArray>()
 
@@ -187,21 +194,30 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
             val outUDatas = ByteArray(ySize / 4)
             val outVDatas = ByteArray(ySize / 4)
 
-            //旋转90
+            val outYStride = when (cameraType) {
+                CAMERA_TYPE_PORI_PORI -> streamSize.height
+                else -> streamSize.width
+            }
+
+            val rotateDegress = when (cameraType) {
+                CAMERA_TYPE_PORI_PORI -> if (cameraId == backCameraId) 90 else 270
+                else -> 0
+            }
+
             YuvUtil.rotateYUV(
                 Ydatas,
                 image.planes[0].rowStride,
                 UVdatas,
                 image.planes[1].rowStride,
                 outYDatas,
-                streamSize.height,
+                outYStride,
                 outUDatas,
-                streamSize.height / 2,
+                outYStride / 2,
                 outVDatas,
-                streamSize.height / 2,
+                outYStride / 2,
                 streamSize.width,
                 streamSize.height,
-                if (cameraId == backCameraId) 90 else 270
+                rotateDegress
             )
             val resultArray = ByteArray(outYDatas.size + outUDatas.size + outVDatas.size)
             System.arraycopy(outYDatas, 0, resultArray, 0, outYDatas.size)
@@ -266,25 +282,6 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
             flvTmpfile.createNewFile()
         }
         initCameraId()
-        Thread {
-            rtmpId = RtmpClient.open("rtmp://192.168.2.200/videotest", true)
-            if (rtmpId != null) {
-                //发送MateData
-                val metadata = FLvMetaData()
-                RtmpClient.writeMetadata(
-                    rtmpId!!,
-                    metadata.metaData,
-                    metadata.metaData.size,
-                    System.currentTimeMillis(),
-                    0x12
-                )
-                activity!!.runOnUiThread {
-                    Toast.makeText(activity!!, "连接成功", Toast.LENGTH_SHORT).show()
-                }
-            }
-//            flvId = RtmpClient.flvInit(flvTmpfile.absolutePath)
-        }.start()
-
         switchCamera.setOnClickListener {
             if (cameraId == frontCameraId) {
                 cameraId = backCameraId
@@ -320,7 +317,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
             } else {
                 textureView.surfaceTextureListener = surfaceTextureListener
             }
-//            sendAudioBuffer()
+            sendAudioBuffer()
             sendVideoBuffer()
         }
     }
@@ -347,10 +344,33 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
     }
 
     override fun onPause() {
+        RtmpClient.close(rtmpId!!)
         closeCamera()
         stopBackgroundThread()
         AudioRecorder.stopAudioRecording()
         super.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Thread {
+            rtmpId = RtmpClient.open("rtmp://192.168.2.200/videotest", true)
+            if (rtmpId != null) {
+                //发送MateData
+                val metadata = FLvMetaData()
+                RtmpClient.writeMetadata(
+                    rtmpId!!,
+                    metadata.metaData,
+                    metadata.metaData.size,
+                    System.currentTimeMillis(),
+                    0x12
+                )
+                activity!!.runOnUiThread {
+                    Toast.makeText(activity!!, "连接成功", Toast.LENGTH_SHORT).show()
+                }
+            }
+//            flvId = RtmpClient.flvInit(flvTmpfile.absolutePath)
+        }.start()
     }
 
     /**
@@ -422,10 +442,16 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
             val supportSise = map.getOutputSizes(ImageFormat.YUV_420_888)
 
             val aspectRatioSize = supportSise.filter {
-                activity!!.screenWidth * it.width == activity!!.screenHeight * it.height
+                if (isScreenPortrait()) {
+                    activity!!.screenWidthIncludeStatusBar * it.width == activity!!.screenHeightIncludeStatusBar * it.height
+                } else {
+                    activity!!.screenWidthIncludeStatusBar * it.height == activity!!.screenHeightIncludeStatusBar * it.width
+                }
             }
             //选取中间的尺寸
             streamSize = aspectRatioSize[aspectRatioSize.size / 2]
+
+            println("streamSize  ${streamSize.width}   ${streamSize.height}")
 
             imageReader = ImageReader.newInstance(
                 streamSize.width, streamSize.height,
@@ -437,17 +463,18 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
             sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION)!!
 
             previewSize = chooseOptimalSize(
+                isScreenPortrait(),
                 supportSise,
-                activity!!.screenWidth, activity!!.screenHeight
+                activity!!.screenWidthIncludeStatusBar, activity!!.screenHeightIncludeStatusBar
             )
 
             println("previceSize ${previewSize.width} ${previewSize.height}")
 
             // We fit the aspect ratio of TextureView to the size of preview we picked.
-            if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
-                textureView.setAspectRatio(previewSize.width, previewSize.height)
-            } else {
+            if (isScreenPortrait()) {
                 textureView.setAspectRatio(previewSize.height, previewSize.width)
+            } else {
+                textureView.setAspectRatio(previewSize.width, previewSize.height)
             }
 
             // Check if the flash is supported.
@@ -473,7 +500,15 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
     private fun initMediaCodec() {
         try {
             codec = MediaCodec.createEncoderByType(MIME)
-            val format = MediaFormat.createVideoFormat(MIME, streamSize.height, streamSize.width)
+            val width = when (cameraType) {
+                CAMERA_TYPE_PORI_PORI -> streamSize.height
+                else -> streamSize.width
+            }
+            val height = when (cameraType) {
+                CAMERA_TYPE_PORI_PORI -> streamSize.width
+                else -> streamSize.height
+            }
+            val format = MediaFormat.createVideoFormat(MIME, width, height)
             format.setInteger(MediaFormat.KEY_BIT_RATE, 3500 * 1000);
             format.setInteger(MediaFormat.KEY_FRAME_RATE, 30);
             format.setInteger(
@@ -534,7 +569,6 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
             val bufferInfo = MediaCodec.BufferInfo()
             var outputBufferIndex = codec.dequeueOutputBuffer(bufferInfo, 5000)
             while (true) {
-                println(outputBufferIndex)
                 when (outputBufferIndex) {
                     MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                         println("INFO_OUTPUT_FORMAT_CHANGED")
@@ -715,7 +749,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
                             // Auto focus should be continuous for camera preview.
                             previewRequestBuilder.set(
                                 CaptureRequest.CONTROL_AF_MODE,
-                                CaptureRequest.CONTROL_AF_MODE_AUTO
+                                CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO
                             )
                             // Flash is automatically enabled when necessary.
                             setAutoFlash(previewRequestBuilder)
@@ -919,14 +953,21 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
 
         @JvmStatic
         private fun chooseOptimalSize(
+            isScreenPortraint: Boolean,
             choices: Array<Size>,
             screenWidth: Int,
             screenHeight: Int
         ): Size {
             //优先考虑全屏
             for (option in choices) {
-                if (option.height == screenWidth && option.width == screenHeight) {
-                    return Size(option.width, option.height)
+                if (isScreenPortraint) {
+                    if (option.height == screenWidth && option.width == screenHeight) {
+                        return Size(option.width, option.height)
+                    }
+                } else {
+                    if (option.width == screenWidth && option.height == screenHeight) {
+                        return Size(option.width, option.height)
+                    }
                 }
             }
             //没有全屏尺寸，选择同比例中间尺寸

@@ -32,11 +32,10 @@ class CameraActivity : AppCompatActivity() {
             .replace(R.id.container, Camera2BasicFragment.newInstance())
             .commit()
 
-        val decorView3 = window.decorView
-        val uiOptions3 = (View.SYSTEM_UI_FLAG_FULLSCREEN
+        val uiOptions = (View.SYSTEM_UI_FLAG_FULLSCREEN
                 or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                 or View.SYSTEM_UI_FLAG_LAYOUT_STABLE)
-        decorView3.systemUiVisibility = uiOptions3
+        window.decorView.systemUiVisibility = uiOptions
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
