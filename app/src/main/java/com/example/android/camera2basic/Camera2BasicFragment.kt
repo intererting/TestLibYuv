@@ -455,7 +455,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
 
             imageReader = ImageReader.newInstance(
                 streamSize.width, streamSize.height,
-                ImageFormat.YUV_420_888, /*maxImages*/ 1
+                ImageFormat.YUV_420_888, /*maxImages*/ 2
             ).apply {
                 setOnImageAvailableListener(onImageAvailableListener, backgroundHandler)
             }

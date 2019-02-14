@@ -29,13 +29,13 @@ class CameraActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_camera)
         savedInstanceState ?: supportFragmentManager.beginTransaction()
-            .replace(R.id.container, Camera2BasicFragment.newInstance())
-            .commit()
+                .replace(R.id.container, Camera2BasicFragment.newInstance())
+                .commit()
 
-        val uiOptions = (View.SYSTEM_UI_FLAG_FULLSCREEN
-                or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                or View.SYSTEM_UI_FLAG_LAYOUT_STABLE)
-        window.decorView.systemUiVisibility = uiOptions
+//        val uiOptions = (View.SYSTEM_UI_FLAG_FULLSCREEN
+//                or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+//                or View.SYSTEM_UI_FLAG_LAYOUT_STABLE)
+//        window.decorView.systemUiVisibility = uiOptions
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
