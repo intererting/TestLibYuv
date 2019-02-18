@@ -22,14 +22,18 @@ class TestFFmpegActivity : AppCompatActivity() {
                 outputFile.createNewFile()
             }
             if (file.exists()) {
-                val ret = FFmpegNativeBridge.runCommand(arrayOf("ffmpeg",
+                val ret = FFmpegNativeBridge.runCommand(
+                    arrayOf(
+                        "ffmpeg",
                         "-i", file.absolutePath,
-                        "-y",
+                        "-y",//覆盖输出
                         "-c:v", "libx264",
                         "-c:a", "aac",
-                        "-vf", "scale=-2:640",
-                        "-preset", "ultrafast", "-b:v",
-                        "450k", "-b:a", "96k", outputFile.absolutePath))
+                        "-vf", "scale=1920:1080",
+                        "-preset", "ultrafast",
+                        "-b:v", "3500k", "-b:a", "64K", outputFile.absolutePath
+                    )
+                )
                 println("result   $ret")
             }
 
