@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+
+    package="org.voiddog.ffmpeg">
+
+    <application android:supportsRtl="true">
+    </application>
+
+</manifest>

@@ -38,7 +38,7 @@ find_library( # Sets the name of the path variable.
 # can link multiple libraries, such as libraries you define in this
 # build script, prebuilt third-party libraries, or system libraries.
 
-include_directories(src/main/cpp/include)
+include_directories(./include)
 
 add_library(
         yuvLib
