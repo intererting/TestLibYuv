@@ -23,6 +23,7 @@ add_library( # Sets the name of the library.
         ffmpeg_opt.c
         ffmpeg_lib.c
         ffmpeg_thread.c
+        ffmpeg_compress.cpp
         ffmpeg_hw.c)
 
 include_directories(.)
