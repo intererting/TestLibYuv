@@ -15,8 +15,6 @@ public class FFmpegNativeBridge {
         return ret;
     }
 
-    public static native byte[] compressYUVWithFFmpeg(int width, int heigh, byte[] y, byte[] u, byte[] v, long timestamp);
-
     /**
      * 设置是否处于调试状态
      */

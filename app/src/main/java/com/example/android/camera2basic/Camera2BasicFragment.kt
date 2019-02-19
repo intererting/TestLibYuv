@@ -46,7 +46,6 @@ import com.example.android.camera2basic.rtmp.*
 import com.yuliyang.testlibyuv.R
 import com.yuliyang.testlibyuv.isScreenPortrait
 import kotlinx.android.synthetic.main.fragment_camera2_basic.*
-import org.voiddog.ffmpeg.FFmpegNativeBridge
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.ByteBuffer
@@ -62,7 +61,7 @@ const val CAMERA_TYPE_PORI_LAND = 1//竖屏直播横屏看
 class Camera2BasicFragment : Fragment(), View.OnClickListener,
     ActivityCompat.OnRequestPermissionsResultCallback {
 
-    private val cameraType = CAMERA_TYPE_PORI_PORI
+    private val cameraType = CAMERA_TYPE_PORI_LAND
     private val videoQueue = LinkedBlockingQueue<ByteArray>()
     private val audioQueue = LinkedBlockingQueue<ByteArray>()
 
@@ -164,8 +163,6 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
     private var frontCameraId: String = ""
     private var backCameraId: String = ""
 
-    var timestamp: Int = 0;
-
     /**
      * This a callback object for the [ImageReader]. "onImageAvailable" will be called when a
      * still image is ready to be saved.
@@ -226,18 +223,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
             System.arraycopy(outYDatas, 0, resultArray, 0, outYDatas.size)
             System.arraycopy(outUDatas, 0, resultArray, outYDatas.size, outUDatas.size)
             System.arraycopy(outVDatas, 0, resultArray, outYDatas.size + outUDatas.size, outVDatas.size)
-//            encoderYUV420(resultArray)
-            val byteArray = FFmpegNativeBridge.compressYUVWithFFmpeg(
-                streamSize.width,
-                streamSize.height,
-                outYDatas,
-                outUDatas,
-                outVDatas,
-                System.currentTimeMillis()
-            )
-            byteArray?.apply {
-                println("byteArray    ${byteArray.size}")
-            }
+            encoderYUV420(resultArray)
             image.close()
         }
     }
@@ -369,7 +355,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
         super.onResume()
         Thread {
             rtmpId = RtmpClient.open("rtmp://192.168.2.200/videotest", true)
-            if (rtmpId != null) {
+            if (rtmpId != 0L) {
                 //发送MateData
                 val metadata = FLvMetaData()
                 RtmpClient.writeMetadata(

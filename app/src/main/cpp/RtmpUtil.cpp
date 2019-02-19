@@ -91,7 +91,7 @@ Java_com_example_android_camera2basic_rtmp_RtmpClient_write264(JNIEnv *env, jcla
         LOGD("end write error %d", sockerr);
         return sockerr;
     } else {
-        LOGD("end write success");
+//        LOGD("end write success");
         return 0;
     }
 }
